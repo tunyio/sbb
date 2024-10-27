@@ -1,0 +1,238 @@
+version: "3.9"
+
+services:
+  prepare:
+    container_name: bankrupt__prepare
+    image: node:22.9.0-alpine3.20
+    volumes:
+      - ./:/project_root
+    working_dir: /project_root
+    env_file:
+      - .env
+    entrypoint: >
+      /bin/sh -c "
+        apk add curl git && rm -rf /var/cache/* && mkdir /var/cache/apk
+        mkdir -p /bin && curl -fsSL 'https://github.com/pnpm/pnpm/releases/download/v9.11.0/pnpm-linuxstatic-x64' -o /bin/pnpm; chmod +x /bin/pnpm;
+        cd /project_root
+        pnpm install
+        export PATH=/project_root/node_modules/.bin:$PATH
+        apk add --no-cache libc6-compat
+        turbo build --filter='./packages/*'
+        cd /project_root/apps/bankrot_fedresurs_api
+        npx prisma generate
+        cd /project_root/infrastructure/pgcat
+        apk add --no-cache envsubst
+        envsubst '$${PGCAT_HOST_TO_RUN_ON} $${PGCAT_PORT_TO_RUN_ON} $${PGCAT_ADMIN_DB_USERNAME} $${PGCAT_ADMIN_DB_PASSWORD} $${PGCAT_APP_CLIENT_USERNAME} $${PGCAT_APP_CLIENT_PASSWORD} $${PGCAT_PG_SERVER_1_HOST} $${PGCAT_PG_SERVER_1_PORT} $${PGCAT_PG_SERVER_1_DB_NAME}' < 'templates/pgcat.toml' >| 'pgcat.toml'
+        exit 0;
+      "
+
+  pgcat_1:
+    container_name: bankrupt__pgcat_1
+    image: ghcr.io/postgresml/pgcat:latest
+    command:
+      - "pgcat"
+      - "/etc/pgcat/pgcat.toml"
+    volumes:
+      - ./infrastructure/pgcat/pgcat.toml:/etc/pgcat/pgcat.toml
+    ports:
+      # Port at which prometheus exporter listens on.
+      # - "9930:9930"
+      # Not for production port (development)
+      - "6432:6432"
+    depends_on:
+      prepare:
+        condition: service_completed_successfully
+    networks:
+      - database
+
+  postgres:
+    container_name: bankrupt__postgres
+    image: postgres:14.2-alpine
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    depends_on:
+      prepare:
+        condition: service_completed_successfully
+    environment:
+      TZ: ${TZ}
+      POSTGRES_HOST_AUTH_METHOD: md5
+      POSTGRES_PORT: ${PGCAT_PG_SERVER_1_PORT}
+      POSTGRES_DB: ${PGCAT_PG_SERVER_1_DB_NAME}
+      POSTGRES_USER: ${PGCAT_APP_CLIENT_USERNAME}
+      POSTGRES_PASSWORD: ${PGCAT_APP_CLIENT_PASSWORD}
+    networks:
+      - database
+
+  redis:
+    container_name: bankrupt__redis
+    image: redis:7.2.5-alpine3.20
+    #    ports:
+    #      # Not for production port (development)
+    #      - "${REDIS_EXT_PORT}:${REDIS_PORT}"
+    restart: unless-stopped
+    volumes:
+      - redis_data:/var/lib/redis
+      - ./infrastructure/redis/conf:/usr/local/etc/redis/redis.conf
+    environment:
+      TZ: ${TZ}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    networks:
+      - redis
+
+  elasticsearch:
+    container_name: bankrupt__elasticsearch
+    build:
+      context: ./infrastructure/elasticsearch
+    restart: unless-stopped
+    volumes:
+      #      - ./infrastructure/elasticsearch/conf:/usr/share/elasticsearch/config
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    environment:
+      ELASTIC_USERNAME: ${ELASTICSEARCH_USERNAME}
+      ELASTIC_PASSWORD: ${ELASTICSEARCH_PASSWORD}
+      ES_JAVA_OPTS: -Xmx256m -Xms256m
+      discovery.type: single-node
+      bootstrap.memory_lock: "true"
+      #      network.host: 127.0.0.1
+      #      http.host: 0.0.0.0
+      xpack.security.enabled: "true"
+      #      xpack.security.transport.ssl.enabled: "true"
+      #      xpack.security.transport.ssl.verification_mode: certificate
+      #      xpack.security.transport.ssl.keystore.path: /etc/elasticsearch/elastic-certificates.p12
+      #      xpack.security.transport.ssl.truststore.path: /etc/elasticsearch/elastic-certificates.p12
+      http.cors.enabled: "true"
+      http.cors.allow-origin: "*"
+      http.cors.allow-headers: "Access-Control-Allow-Origin, X-Requested-With, Content-Type, Content-Length, Authorization, kbn-version, Origin, Accept, Engaged-Auth-Token"
+    ports:
+      # Not for production port (development)
+      - "9200:9200"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    #      noproc: 65536
+    #      nofile: 65536
+    #      fsize: -1
+    #      as: -1
+    networks:
+      - elasticsearch
+
+  minio:
+    image: minio/minio:RELEASE.2024-07-15T19-02-30Z
+    container_name: bankrupt__minio
+    restart: unless-stopped
+    ports:
+      # Not for production port (development)
+      - "9001:9001"
+    env_file:
+      - .env
+    command: minio server /data --address :9000 --console-address :9001
+    volumes:
+      - minio_data:/data
+    networks:
+      - minio
+      # aliases:
+      # For localhost access, add the following to your /etc/hosts
+      # 127.0.0.1       my-minio-localhost-alias
+      # When accessing the minio container on a server with an accessible dns, use the following
+      # - ${HOSTNAME}
+
+
+  bankrot_fedresurs_api:
+    container_name: bankrupt__api__dev
+    build:
+      context: .
+      dockerfile: ./apps/bankrot_fedresurs_api/development.dockerfile
+    volumes:
+      - ./:/project_root
+    ports:
+      # Not for production port (development)
+      - "3000:3000"
+#    deploy:
+#      mode: replicated
+#      replicas: 1
+#      restart_policy:
+#        condition: on-failure
+    depends_on:
+      prepare:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      CONTAINER_ROLE: api
+#      X_NODE_ID: {{.Node.ID}}
+#      X_NODE_HOSTNAME: {{.Node.Hostname}}
+#      X_TASK_ID: {{.Task.ID}}
+#      X_TASK_NAME: {{.Task.Name}}
+#      # Container replica's number
+#      X_TASK_SLOT: {{.Task.Slot}}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      DATABASE_PGBOUNCER_URL: postgresql://${PGCAT_APP_CLIENT_USERNAME}:${PGCAT_APP_CLIENT_PASSWORD}@pgcat_1:6432/${PGCAT_PG_SERVER_1_DB_NAME}?pgbouncer=true&schema=public&sslmode=disable
+      # Not for production variable (development)
+      DATABASE_DIRECT_URL: postgresql://${PGCAT_APP_CLIENT_USERNAME}:${PGCAT_APP_CLIENT_PASSWORD}@postgres:${PGCAT_PG_SERVER_1_PORT}/${PGCAT_PG_SERVER_1_DB_NAME}?schema=public&sslmode=disable
+    networks:
+      - database
+      - redis
+      - elasticsearch
+      - minio
+
+#  bankrot_fedresurs_bgjobs:
+#    container_name: bankrupt__bgjobs__dev
+#    build:
+#      context: .
+#      dockerfile: ./apps/bankrot_fedresurs_api/development.dockerfile
+#    volumes:
+#      - ./:/project_root
+#    deploy:
+#      mode: replicated
+#      replicas: 1
+#      restart_policy:
+#        condition: on-failure
+#    depends_on:
+#      prepare:
+#        condition: service_completed_successfully
+#    env_file:
+#      - .env
+#    environment:
+#      CONTAINER_ROLE: backgroundJobs
+#      REDIS_HOST: redis
+#      REDIS_PORT: 6379
+#      DATABASE_PGBOUNCER_URL: postgresql://${PGCAT_APP_CLIENT_USERNAME}:${PGCAT_APP_CLIENT_PASSWORD}@pgcat_1:6432/${PGCAT_PG_SERVER_1_DB_NAME}?pgbouncer=true&schema=public&sslmode=disable
+#      # Not for production variable (development)
+#      DATABASE_DIRECT_URL: postgresql://${PGCAT_APP_CLIENT_USERNAME}:${PGCAT_APP_CLIENT_PASSWORD}@postgres:${PGCAT_PG_SERVER_1_PORT}/${PGCAT_PG_SERVER_1_DB_NAME}?schema=public&sslmode=disable
+#    networks:
+#      - database
+#      - redis
+#      - elasticsearch
+#      - minio
+
+
+  bankrot_fedresurs_serveractions:
+    container_name: bankrupt__serveractions__dev
+    build:
+      context: .
+      dockerfile: ./apps/bankrot_fedresurs_serveractions/development.dockerfile
+    volumes:
+      - ./:/project_root
+    ports:
+      # Not for production port (development)
+      - "3001:3000"
+    depends_on:
+      prepare:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+
+networks:
+  database:
+  redis:
+  elasticsearch:
+  minio:
+
+volumes:
+  postgres_data:
+  redis_data:
+  elasticsearch_data:
+  minio_data:

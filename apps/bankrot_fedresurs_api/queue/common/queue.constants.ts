@@ -1,0 +1,17 @@
+export const PERIODIC_JOBS_QUEUE = 'Periodic jobs';
+export const MAILER_JOBS_QUEUE = 'Mailer jobs';
+
+export const SEARCH_INDEX_JOBS_QUEUE = 'Search index jobs';
+export const SEARCH_INDEX_JOBS_NAMES = {
+  INDEX_MESSAGES_LIST_DOC: 'INDEX_MESSAGES_LIST_DOC',
+  REMOVE_MESSAGES_LIST_DOC: 'REMOVE_MESSAGES_LIST_DOC',
+  INDEX_DEPTORS_INDIV_LIST_DOC: 'INDEX_DEPTORS_INDIV_LIST_DOC',
+  REMOVE_DEPTORS_INDIV_LIST_DOC: 'REMOVE_DEPTORS_INDIV_LIST_DOC',
+  INDEX_DEPTORS_LEGAL_LIST_DOC: 'INDEX_DEPTORS_LEGAL_LIST_DOC',
+  REMOVE_DEPTORS_LEGAL_LIST_DOC: 'REMOVE_DEPTORS_LEGAL_LIST_DOC'
+} as const;
+
+export const JOB_NAME_EMAIL_CONFIRM = 'Send email confirm code';
+export const JOB_NAME_PASSWORD_RESTORE =
+  'Send a link for restore password by email';
+export const JOB_NAME_REINDEX_USER = 'Update search index for user';

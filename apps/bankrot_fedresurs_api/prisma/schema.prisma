@@ -1,0 +1,505 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native"]
+}
+
+generator dto {
+  provider                        = "prisma-generator-nestjs-dto"
+  output                          = "generated/nestjs-dto"
+  entityPrefix                    = ""
+  createDtoPrefix                 = "Create"
+  exportRelationModifierClasses   = "true"
+  entitySuffix                    = ""
+  reExport                        = "false"
+  outputToNestJsResourceStructure = "false"
+  fileNamingStyle                 = "camel"
+  updateDtoPrefix                 = "Update"
+  dtoSuffix                       = "Dto"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_PGBOUNCER_URL")
+  directUrl = env("DATABASE_DIRECT_URL")
+}
+
+model AdminsList {
+  id         Int     @id @default(autoincrement())
+  login      String  @unique @db.VarChar
+  passw_hash String? @db.VarChar
+
+  @@index([login])
+}
+
+model ArbManagersActions {
+  id              Int                              @id @default(autoincrement())
+  deleted_at      DateTime?                        @db.Timestamp(6)
+  arb_manager_id  Int                              @unique
+  type            arb_manager_actions_type?
+  desc            arb_manager_actions_description?
+  ArbManagersList ArbManagersList                  @relation(fields: [arb_manager_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model ArbManagersList {
+  id                    Int                     @id @default(autoincrement())
+  deleted_at            DateTime?               @db.Timestamp(6)
+  user_id               Int                     @unique
+  name_first            String?                 @db.VarChar
+  name_second           String?                 @db.VarChar
+  name_family           String?                 @db.VarChar
+  name_full             String?                 @db.VarChar
+  registry_number       String?                 @db.VarChar
+  sro_id                Int?
+  ArbManagersActions    ArbManagersActions?
+  DictSro               DictSro?                @relation(fields: [sro_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  UsersList             UsersList               @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ArbManagersReports    ArbManagersReports?
+  MessagesPublisherList MessagesPublisherList[]
+
+  @@index([name_family])
+  @@index([name_first])
+  @@index([name_second])
+  @@index([registry_number])
+  @@index([sro_id])
+  @@index([user_id])
+}
+
+model ArbManagersReports {
+  id              Int                                 @id @default(autoincrement())
+  deleted_at      DateTime?                           @db.Timestamp(6)
+  arb_manager_id  Int                                 @unique
+  type            arb_manager_report_type?
+  procedure_type  arb_manager_reports_procedure_type?
+  ArbManagersList ArbManagersList                     @relation(fields: [arb_manager_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model AuctionOrgsIndivList {
+  id                    Int                     @id @default(autoincrement())
+  deleted_at            DateTime?               @db.Timestamp(6)
+  name_first            String?                 @db.VarChar
+  name_second           String?                 @db.VarChar
+  name_family           String?                 @db.VarChar
+  name_full             String?                 @db.VarChar
+  address               String?
+  AuctionsList          AuctionsList[]
+  MessagesPublisherList MessagesPublisherList[]
+
+  @@index([address])
+  @@index([name_family])
+  @@index([name_first])
+  @@index([name_second])
+}
+
+model AuctionOrgsLegalList {
+  id                    Int                     @id @default(autoincrement())
+  deleted_at            DateTime?               @db.Timestamp(6)
+  name                  String?                 @db.VarChar
+  address               String?
+  AuctionsList          AuctionsList[]
+  MessagesPublisherList MessagesPublisherList[]
+
+  @@index([address])
+  @@index([name])
+}
+
+model AuctionsList {
+  id                             Int                                      @id @default(autoincrement())
+  deleted_at                     DateTime?                                @db.Timestamp(6)
+  type                           auctions_type?
+  status                         auctions_status?
+  platform_id                    Int?
+  orgs_legal_list_id             Int?
+  orgs_indiv_list_id             Int?
+  property_classifier            String?                                  @db.VarChar
+  price_proposal_submission_form auctions_price_proposal_submission_form?
+  AuctionOrgsIndivList           AuctionOrgsIndivList?                    @relation(fields: [orgs_indiv_list_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  AuctionOrgsLegalList           AuctionOrgsLegalList?                    @relation(fields: [orgs_legal_list_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  AuctionsPlatformList           AuctionsPlatformList?                    @relation(fields: [platform_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model AuctionsPlatformList {
+  id                    Int                   @id @default(autoincrement())
+  deleted_at            DateTime?             @db.Timestamp(6)
+  auct_platforms_sro_id Int?
+  disqualified_persons  Json?
+  AuctionsList          AuctionsList[]
+  DictAuctPlatformsSro  DictAuctPlatformsSro? @relation(fields: [auct_platforms_sro_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model CourtsCases {
+  id                           Int                                  @id @default(autoincrement())
+  created_at                   DateTime?                            @db.Timestamp(6)
+  deleted_at                   DateTime?                            @db.Timestamp(6)
+  status                       courts_cases_status?
+  deptor_status                courts_cases_deptor_status?
+  procedure_termination_reason courts_cases_procedure_termn_reason?
+  finances_bills_status        finances_bills_status?
+  laim_number_n_judge_code     String?                              @map("сlaim_number_n_judge_code") @db.VarChar
+}
+
+model DeptorsIndivList {
+  id           Int                         @id @default(autoincrement())
+  deleted_at   DateTime?                   @db.Timestamp(6)
+  region_id    Int?
+  category     individuals_debtors_status?
+  name_first   String?                     @db.VarChar
+  name_second  String?                     @db.VarChar
+  name_family  String?                     @db.VarChar
+  address      String?
+  code_inn     String?                     @db.VarChar
+  code_ogrnip  String?                     @db.VarChar
+  code_snils   String?                     @db.VarChar
+  DictRegion   DictRegion?                 @relation(fields: [region_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  MessagesList MessagesList[]
+
+  @@index([address])
+  @@index([category])
+  @@index([code_inn])
+  @@index([code_ogrnip])
+  @@index([code_snils])
+  @@index([name_family])
+  @@index([name_first])
+  @@index([name_second])
+  @@index([region_id])
+}
+
+model DeptorsLegalList {
+  id           Int                            @id @default(autoincrement())
+  deleted_at   DateTime?                      @db.Timestamp(6)
+  region_id    Int?
+  category     legal_entities_debtors_status?
+  name         String?                        @db.VarChar
+  address      String?
+  code_inn     String?                        @db.VarChar
+  code_ogrn    String?                        @db.VarChar
+  code_okpo    String?                        @db.VarChar
+  DictRegion   DictRegion?                    @relation(fields: [region_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  MessagesList MessagesList[]
+
+  @@index([address])
+  @@index([category])
+  @@index([code_inn])
+  @@index([code_ogrn])
+  @@index([code_okpo])
+  @@index([name])
+  @@index([region_id])
+}
+
+model DictArbitrationCourts {
+  id         Int       @id @default(autoincrement())
+  deleted_at DateTime? @db.Timestamp(6)
+  title      String    @db.VarChar
+
+  @@index([title])
+}
+
+model DictAuctPlatforms {
+  id         Int       @id @default(autoincrement())
+  deleted_at DateTime? @db.Timestamp(6)
+  title      String    @db.VarChar
+}
+
+model DictAuctPlatformsSro {
+  id                   Int                    @id @default(autoincrement())
+  deleted_at           DateTime?              @db.Timestamp(6)
+  code                 String                 @unique @db.VarChar
+  title                String                 @db.VarChar
+  register_number      String?                @db.VarChar
+  AuctionsPlatformList AuctionsPlatformList[]
+}
+
+model DictMessageTypes {
+  id                     Int                @id @default(autoincrement())
+  deleted_at             DateTime?          @db.Timestamp(6)
+  code                   String             @unique @db.VarChar
+  title                  String             @db.VarChar
+  parent_id              Int?
+  DictMessageTypes       DictMessageTypes?  @relation("DictMessageTypesToDictMessageTypes", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_DictMessageTypes DictMessageTypes[] @relation("DictMessageTypesToDictMessageTypes")
+  MessagesList           MessagesList[]
+
+  @@index([code])
+  @@index([parent_id])
+  @@index([title])
+}
+
+model DictOkopf {
+  id              Int         @id @default(autoincrement())
+  deleted_at      DateTime?   @db.Timestamp(6)
+  code            Int         @unique
+  title           String      @db.VarChar
+  canceled        Boolean?    @default(false)
+  parent_id       Int?
+  DictOkopf       DictOkopf?  @relation("DictOkopfToDictOkopf", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_DictOkopf DictOkopf[] @relation("DictOkopfToDictOkopf")
+
+  @@index([code])
+  @@index([parent_id])
+  @@index([title])
+}
+
+model DictRegion {
+  id               Int                @id @default(autoincrement())
+  deleted_at       DateTime?          @db.Timestamp(6)
+  okato_oktmo_code String?            @unique @db.VarChar
+  title            String             @db.VarChar
+  DeptorsIndivList DeptorsIndivList[]
+  DeptorsLegalList DeptorsLegalList[]
+
+  @@index([okato_oktmo_code])
+  @@index([title])
+}
+
+model DictSro {
+  id                    Int                     @id @default(autoincrement())
+  deleted_at            DateTime?               @db.Timestamp(6)
+  code                  String                  @unique @db.VarChar
+  title                 String                  @db.VarChar
+  register_number       String?                 @db.VarChar
+  document_type         sro_document_type?
+  ArbManagersList       ArbManagersList[]
+  MessagesPublisherList MessagesPublisherList[]
+
+  @@index([code])
+  @@index([register_number])
+}
+
+model FinancesActions {
+  id         Int                           @id @default(autoincrement())
+  deleted_at DateTime?                     @db.Timestamp(6)
+  type       finances_actions_type?
+  desc       finances_actions_description?
+}
+
+model FinancesBills {
+  id         Int                    @id @default(autoincrement())
+  deleted_at DateTime?              @db.Timestamp(6)
+  status     finances_bills_status?
+}
+
+model MessagesList {
+  id                    Int                   @id @default(autoincrement())
+  updated_at            DateTime?             @default(now()) @db.Timestamp(6)
+  deleted_at            DateTime?             @db.Timestamp(6)
+  number                Int                   @default(autoincrement())
+  message_type_id       Int?
+  status                message_status?
+  publication_date      DateTime              @db.Timestamp(6)
+  publisher_id          Int
+  blocked               Boolean?
+  blocked_reason        String?
+  deptor_legal_id       Int?
+  deptor_indiv_id       Int?
+  DeptorsIndivList      DeptorsIndivList?     @relation(fields: [deptor_indiv_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  DeptorsLegalList      DeptorsLegalList?     @relation(fields: [deptor_legal_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  DictMessageTypes      DictMessageTypes?     @relation(fields: [message_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  MessagesPublisherList MessagesPublisherList @relation(fields: [publisher_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([message_type_id])
+  @@index([number])
+  @@index([publisher_id])
+  @@index([status])
+  @@index([updated_at])
+}
+
+model MessagesPublisherList {
+  id                   Int                   @id @default(autoincrement())
+  deleted_at           DateTime?             @db.Timestamp(6)
+  type                 message_publisher
+  arb_manager_id       Int?
+  auction_org_legal_id Int?
+  auction_org_indiv_id Int?
+  sro_id               Int?
+  MessagesList         MessagesList[]
+  ArbManagersList      ArbManagersList?      @relation(fields: [arb_manager_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  AuctionOrgsIndivList AuctionOrgsIndivList? @relation(fields: [auction_org_indiv_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  AuctionOrgsLegalList AuctionOrgsLegalList? @relation(fields: [auction_org_legal_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  DictSro              DictSro?              @relation(fields: [sro_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([arb_manager_id])
+  @@index([auction_org_indiv_id])
+  @@index([auction_org_legal_id])
+  @@index([sro_id])
+  @@index([type])
+}
+
+model UsersContacts {
+  id                      Int       @id @default(autoincrement())
+  deleted_at              DateTime? @db.Timestamp(6)
+  user_id                 Int
+  email                   String?   @unique @db.VarChar
+  email_passw_reset_token String?   @db.VarChar
+  UsersList               UsersList @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([email])
+  @@index([user_id])
+}
+
+model UsersList {
+  id              Int               @id @default(autoincrement())
+  deleted_at      DateTime?         @db.Timestamp(6)
+  blocked         Boolean?
+  blocked_reason  String?
+  login           String            @unique @db.VarChar
+  passw_hash      String?           @db.VarChar
+  ArbManagersList ArbManagersList?
+  UsersContacts   UsersContacts[]
+  UsersRolesPivot UsersRolesPivot[]
+
+  @@index([login])
+}
+
+model UsersRoles {
+  id              Int               @id @default(autoincrement())
+  deleted_at      DateTime?         @db.Timestamp(6)
+  code            user_role         @unique
+  UsersRolesPivot UsersRolesPivot[]
+
+  @@index([code])
+}
+
+model UsersRolesPivot {
+  id           Int        @id @default(autoincrement())
+  user_id      Int
+  user_role_id Int
+  created_at   DateTime?  @default(now()) @db.Timestamp(6)
+  UsersList    UsersList  @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  UsersRoles   UsersRoles @relation(fields: [user_role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([user_id])
+  @@index([user_role_id])
+}
+
+enum applicant_type {
+  konkursnii_kreditor
+  upolnomochennii_organ
+  rabotnik_dolzhnika_ili_predstavitel_rabotnikov_dolzhnika
+  gosudarstvennii_kontrolnii_organ
+  dolzhnik
+}
+
+enum arb_manager_actions_description {
+  vklyuchenie_v_sro
+  isklyuchenie_iz_sro
+}
+
+enum arb_manager_actions_type {
+  sobitie_o_chlenstve_v_sro
+}
+
+enum arb_manager_report_type {
+  finalnii_otchet
+  promezhutochnii_ochet
+}
+
+enum arb_manager_reports_procedure_type {
+  deistviya_v_otnoshenii_dolzhnika
+}
+
+enum auctions_price_proposal_submission_form {
+  otkritaya
+  zakritaya
+}
+
+enum auctions_status {
+  nachati
+}
+
+enum auctions_type {
+  publichnoe_predlozhenie
+  auktsion
+}
+
+enum courts_cases_deptor_status {
+  deistvuyushchii
+  isklyuchen_iz_egryul
+}
+
+enum courts_cases_procedure_termn_reason {
+  prekratit
+}
+
+enum courts_cases_status {
+  aktivno
+  zaversheno_prekrashcheno
+}
+
+enum finances_actions_description {
+  popolnenie_litsevogo_scheta
+  publikatsiya_soobsheniya
+}
+
+enum finances_actions_type {
+  prihod
+  rashod
+}
+
+enum finances_bills_status {
+  ne_oplachen
+  oplachen
+}
+
+enum fns_actions_type {
+  dobavlenie_k_spisku
+  neuchet
+  vibor_dlya_zayavleniya
+}
+
+enum individuals_debtors_status {
+  individualnii_predprinimatel
+  krestyanskoe_fermerskoe_khozyaistvo
+  otsutstvuyushchii_dolzhnik
+  fizicheskoe_litso
+}
+
+enum legal_entities_debtors_status {
+  gradoobrazuyushchaya_organizatsiya
+  zastroishchik
+  inaya_finansovaya_organizatsiya
+  kreditnaya_organizatsiya
+  likvidiruemii_dolzhnik
+  negosudarstvennii_pensionnii_fond
+  obichnaya_organizatsiya
+  otsutstvuyushchii_dolzhnik
+  selskokhozyaistvennaya_organizatsiya
+  strategicheskoe_predpriyatie_i_organizatsiya
+  subekt_yestestvennikh_monopolii
+  strakhovaya_organizatsiya
+}
+
+enum message_publisher {
+  arbitrazhnii_upravlyayushchii
+  organizator_torgov_yuridicheskoe_litso
+  organizator_torgov_fizicheskoe_litso
+  sro_au
+  yuridicheskoe_litso
+  fizicheskoe_litso
+  publikator_fns
+  prochie_gos_korporatsiya_agentstvo_po_strakhovaniyu_vkladov
+  prochie_tsentralnii_bank_rf
+  prochie_federalnaya_sluzhba_sudebnikh_pristavov
+  prochie_federalnaya_nalogovaya_sluzhba
+  prochie_operator_efrsb
+}
+
+enum message_status {
+  opublikovano
+  podpisano
+  nepodpisano
+}
+
+enum procedure_ending_reason {
+  proizvodstvo_po_delu_zaversheno
+  proizvodstvo_po_delu_prekrashcheno
+  otkaz_v_priznanii_dolzhnika_bankrotom
+  inoe
+}
+
+enum sro_document_type {
+  svedeniya_o_filialakh_i_predstavitelstvakh
+  uchreditelnie_dokumenti
+}
+
+enum user_role {
+  arbitrazhnii_upravlyayushchii
+}

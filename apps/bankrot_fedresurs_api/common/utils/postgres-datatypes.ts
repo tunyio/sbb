@@ -1,0 +1,4 @@
+export const PG_DATATYPE_LIMITS = {
+  TEXT_MAX_BYTES: 4 * 1024,
+  MAX_INT_32: 2147483647
+};
